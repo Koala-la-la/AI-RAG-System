@@ -1,8 +1,3 @@
-当然，下面直接给你一版 **专业、适合放到 GitHub 首页的 README**，风格偏企业级、项目展示型，适合你现在这个 **Enterprise RAG System** 项目。
-
-你可以直接复制覆盖到仓库里的 `README.md`。
-
----
 
 ````markdown
 # Enterprise RAG System
