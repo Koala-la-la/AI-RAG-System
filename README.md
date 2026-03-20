@@ -1,47 +1,46 @@
 
 ````markdown
-# Enterprise RAG System
+ Enterprise RAG System
 
-一个基于 **FastAPI + Milvus + Redis + LangGraph + React** 构建的企业级 RAG（Retrieval-Augmented Generation，检索增强生成）知识库问答系统。
+一个基于 FastAPI + Milvus + Redis + LangGraph + React 构建的企业级 RAG（Retrieval-Augmented Generation，检索增强生成）知识库问答系统。
 
 该项目支持多用户知识库隔离、文档上传解析、向量检索、会话上下文管理、缓存加速、Agent 编排，以及前后端分离部署。适用于企业知识问答、内部文档检索、智能客服、FAQ 系统、知识助手等场景。
 
 ---
 
-## 项目特性
+ 项目特性
 
-- **企业级 RAG 架构**
+- 企业级 RAG 架构
   - 基于检索增强生成（RAG）模式构建，支持“上传文档 -> 切分 -> 向量化 -> 检索 -> 生成答案”完整流程。
 
-- **多用户知识库隔离**
+- 多用户知识库隔离
   - 支持按用户维度隔离知识库数据，避免不同用户之间的文档和检索结果互相干扰。
 
-- **Milvus 向量数据库**
+- Milvus 向量数据库
   - 使用 Milvus 作为向量存储引擎，支持高性能语义检索与可扩展数据管理。
 
-- **Redis 缓存与会话管理**
+- Redis 缓存与会话管理
   - 使用 Redis 存储对话历史、缓存常见问答结果，提升系统响应速度并降低重复推理成本。
 
-- **LangGraph Agent 编排**
+- LangGraph Agent 编排
   - 通过 LangGraph 构建可扩展 Agent 工作流，将检索、上下文拼接、回答生成等节点流程化。
 
-- **文档来源引用**
+- 文档来源引用
   - 支持返回答案时附带文档来源、片段内容、页码等信息，增强可追溯性和可信度。
 
-- **React 前端 UI**
+- React 前端 UI
   - 提供现代化 Web 界面，支持文件上传、在线问答、来源展示、用户切换等能力。
 
-- **前后端分离**
+- 前后端分离**
   - 后端使用 FastAPI，前端使用 React + Vite，便于独立开发、部署与扩展。
 
-- **支持公网访问**
+- 支持公网访问
   - 可结合 ngrok 实现本地开发环境公网访问，便于测试、演示和外部访问。
 
 ---
 
-## 系统架构
+ 系统架构
 
-```text
 用户 / 浏览器
       │
       ▼
