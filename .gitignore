@@ -1,16 +1,44 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-
-# Virtual environment
+*.pyd
+*.so
+.venv/
 venv/
 env/
-.venv/
 
-# Logs
+# FastAPI / logs
 *.log
+
+# Env
+.env
+.env.*
+
+# Uploaded files
+data/uploads/*
+!data/uploads/.gitkeep
 
 # OS
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Node
+web/react-ui/node_modules/
+web/react-ui/dist/
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# HuggingFace / model cache
+hf_cache/
+models/
+
+# Jupyter
+.ipynb_checkpoints/
