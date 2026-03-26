@@ -1,8 +1,7 @@
 ﻿# AI-RAG-System
 
 一个面向本地文档问答场景的 RAG 项目，围绕 `Hybrid Retrieval + Query Rewrite + Rerank + No-Answer Gating + Evaluation` 做了完整实现。
-
-这个仓库最初是一个基础版 RAG Demo，现在已经升级为更适合 **AI 开发岗 / AI 应用开发岗** 展示的版本：不仅能上传文档并进行问答，还可以观察检索过程、调试查询改写效果，并通过 benchmark 持续评估优化前后的质量变化。
+不仅能上传文档并进行问答，还可以观察检索过程、调试查询改写效果，并通过 benchmark 持续评估优化前后的质量变化。
 
 ## Features
 
