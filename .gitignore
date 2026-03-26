@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -43,7 +43,11 @@ htmlcov/
 
 # Upload / generated data
 uploads/
-data/
+data/*
+!data/eval/
+data/eval/*
+!data/eval/sample_benchmark.json
+data/eval/reports/
 tmp/
 
 # Docker runtime volumes

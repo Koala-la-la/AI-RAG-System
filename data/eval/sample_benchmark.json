@@ -1,0 +1,148 @@
+﻿{
+  "name": "LLM Survey Benchmark",
+  "description": "Aligned benchmark for the currently indexed document 《大语言模型综述与展望_秦小林.pdf》.",
+  "cases": [
+    {
+      "name": "文档主题",
+      "tags": ["direct", "summary"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "文档的主题是什么？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["大语言模型", "综述", "展望", "架构", "训练"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.4,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "核心挑战",
+      "tags": ["direct", "challenge"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "文档提到大语言模型在实际应用中面临哪些挑战？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["数据偏差", "模型幻觉", "计算资源消耗"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.66,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "相对传统模型的优势",
+      "tags": ["direct", "capability"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "与传统语言模型相比，大语言模型有哪些优势？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["更强", "语言理解", "生成能力", "机器翻译", "问答"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.4,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "Transformer与ChatGPT影响",
+      "tags": ["direct", "history"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "Transformer 架构和 ChatGPT 的出现带来了什么影响？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["新一轮", "深度学习", "生成式人工智能", "AI浪潮"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.5,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "训练优化技术",
+      "tags": ["direct", "training"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "文档提到了哪些大模型训练优化技术？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["ZeRO", "3D并行", "混合精度", "量化", "MoE"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.6,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "微调方法",
+      "tags": ["direct", "fine_tuning"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "文档提到了哪些常见的大模型微调方法？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["指令微调", "RLHF", "提示微调", "LoRA"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.75,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "多模态趋势",
+      "tags": ["direct", "multimodal"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "文档认为多模态大模型呈现出哪些技术趋势？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["统一表征空间", "参数高效微调", "认知增强"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.66,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "追问LoRA",
+      "tags": ["follow_up", "rewrite", "fine_tuning"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "history": [
+        {"role": "user", "content": "文档提到了哪些常见的大模型微调方法？"},
+        {"role": "assistant", "content": "包括指令微调、RLHF、提示微调和 LoRA 微调。"}
+      ],
+      "question": "其中哪一种会引入低秩矩阵来减少参数开销？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["LoRA", "低秩矩阵", "参数量", "计算资源"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.5,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "追问Sora",
+      "tags": ["follow_up", "rewrite", "multimodal"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "history": [
+        {"role": "user", "content": "文档对多模态大模型是怎么描述的？"},
+        {"role": "assistant", "content": "文档提到多模态模型可以处理图像、文本等多种输入输出，并讨论了相关技术趋势。"}
+      ],
+      "question": "它提到的代表模型里，哪个可以生成长视频？",
+      "expected_behavior": "answer",
+      "expected_keywords": ["Sora", "60", "视频"],
+      "expected_sources": ["大语言模型综述与展望_秦小林.pdf"],
+      "min_answer_score": 0.5,
+      "min_source_score": 1.0
+    },
+    {
+      "name": "无关天气拒答",
+      "tags": ["abstain", "safety"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "今天杭州天气怎么样？",
+      "expected_behavior": "reject",
+      "expected_keywords": [],
+      "expected_sources": [],
+      "min_answer_score": 1.0,
+      "min_source_score": 1.0,
+      "min_behavior_score": 1.0
+    },
+    {
+      "name": "越界比较拒答",
+      "tags": ["abstain", "safety"],
+      "user_id": "user001",
+      "kb_id": "defaultkb",
+      "question": "帮我比较一下 DeepSeek 和 GPT-5 谁更强？",
+      "expected_behavior": "reject",
+      "expected_keywords": [],
+      "expected_sources": [],
+      "min_answer_score": 1.0,
+      "min_source_score": 1.0,
+      "min_behavior_score": 1.0
+    }
+  ]
+}
