@@ -13,6 +13,7 @@
 - 来源可解释：前端展示命中来源、chunk 片段、rerank 分数、overlap 等调试信息
 - 本地模型优先：默认通过 Ollama 调用本地 LLM，并使用本地 Ollama Embedding
 - Evaluation：支持批量 benchmark、多轮 case、Markdown / JSON 报告输出
+- 文档管理：支持文档注册表、同名文档去重策略、删除文档、重建索引、多文档 benchmark 自动发现
 
 ## Tech Stack
 
@@ -43,6 +44,10 @@ flowchart LR
 
     B --> L["Redis Cache / History"]
     L --> G
+
+    B --> M["Document Registry"]
+    M --> C
+    M --> F
 ```
 
 ## Current Capabilities
@@ -61,10 +66,20 @@ flowchart LR
 
 - 支持 direct QA / follow-up QA / abstention case
 - 支持 case tags 统计，如 `summary`、`rewrite`、`safety`
+- 支持多文档 suite，并按 `source_filters` 做文档级隔离评测
+- 自动发现知识库中的已索引文档并生成 benchmark 模板
 - 自动输出：
   - `data/eval/reports/*_latest.json`
   - `data/eval/reports/*_latest.md`
 - 便于记录每次检索策略优化前后的结果变化
+
+### Document Management
+
+- 上传文件会写入本地文档注册表：`data/document_registry.json`
+- 默认去重策略为 `replace`，可通过 `UPLOAD_DUPLICATE_POLICY=replace|skip|error` 调整
+- 新上传文件默认保存到 `data/uploads/<user_id>/<kb_id>/`
+- 支持列出知识库文档、删除文档、重建索引
+- 删除和重建索引时会刷新知识库缓存版本，并清空当前知识库对话历史，避免命中旧答案
 
 ## Project Structure
 
@@ -77,140 +92,38 @@ app/
   llm/                Ollama client
   rag/                Query rewrite, retrieval, ranking, graph workflow
 web/react-ui/
-  src/                React frontend and retrieval-debug UI
-data/eval/
-  sample_benchmark.json   Example benchmark dataset
+  src/                UI and retrieval observability panel
+data/
+  eval/               Benchmarks, suites, and generated reports
+  uploads/            Uploaded files grouped by user_id/kb_id
 ```
 
-## Quick Start
+## API Endpoints
 
-### 1. Clone and create venv
+- `POST /api/upload`
+  - form-data: `file`, `user_id`, `kb_id`
+- `GET /api/documents?user_id=...&kb_id=...`
+- `DELETE /api/documents?user_id=...&kb_id=...&source=...`
+- `POST /api/documents/reindex`
+  - JSON: `{"user_id": "user001", "kb_id": "defaultkb", "source": "your-file.pdf"}`
+- `POST /api/chat`
 
-```powershell
-git clone git@github.com:Koala-la-la/AI-RAG-System.git
-cd AI-RAG-System
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -U pip setuptools wheel
-python -m pip install -r requirements.txt
+## Evaluation Commands
+
+列出当前知识库已索引文档：
+
+```bash
+python -m app.evaluation.benchmark --list-sources --user-id user001 --kb-id defaultkb
 ```
 
-### 2. Install frontend dependencies
+基于当前知识库自动生成多文档 benchmark 模板：
 
-```powershell
-cd web\react-ui
-npm install
-cd ..\..
+```bash
+python -m app.evaluation.benchmark --generate-suite-template --user-id user001 --kb-id defaultkb --benchmarks-dir data/eval/benchmarks/generated --suite-output data/eval/generated_multi_doc_suite.json
 ```
 
-### 3. Start infrastructure services
+运行多文档评测：
 
-```powershell
-docker compose up -d
+```bash
+python -m app.evaluation.benchmark --suite data/eval/generated_multi_doc_suite.json
 ```
-
-检查服务状态：
-
-```powershell
-docker compose ps
-```
-
-### 4. Make sure Ollama is available
-
-推荐先准备本地模型：
-
-```powershell
-ollama list
-```
-
-当前默认配置使用：
-
-- LLM: `qwen2.5:7b`
-- Embedding: `qwen2.5:7b` via Ollama `/api/embed`
-
-### 5. Start backend
-
-```powershell
-python -m uvicorn app.main:app --reload
-```
-
-### 6. Start frontend
-
-```powershell
-cd web\react-ui
-npm run dev
-```
-
-打开：
-
-- Frontend: [http://localhost:5173](http://localhost:5173)
-- Backend docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-## Environment
-
-参考仓库根目录中的 `.env.example` 配置本地环境。
-
-关键配置说明：
-
-- `EMBED_PROVIDER=ollama`：默认使用本地 Ollama Embedding
-- `OLLAMA_MODEL`：回答生成模型
-- `OLLAMA_EMBED_MODEL`：Embedding 模型
-- `MILVUS_COLLECTION`：当前向量集合名称
-- `MIN_RERANK_SCORE` / `MAX_SEMANTIC_DISTANCE`：控制证据强弱与拒答阈值
-
-## Evaluation
-
-运行完整 benchmark：
-
-```powershell
-python -m app.evaluation.benchmark
-```
-
-快速抽样运行：
-
-```powershell
-python -m app.evaluation.benchmark --limit 3
-```
-
-只打印 JSON，不写报告文件：
-
-```powershell
-python -m app.evaluation.benchmark --no-write
-```
-
-当前示例 benchmark 位于：
-
-- `data/eval/sample_benchmark.json`
-
-报告输出目录：
-
-- `data/eval/reports/`
-
-## Recommended Demo Flow
-
-如果你想用这个项目做 GitHub 展示或面试演示，建议按这个顺序展示：
-
-1. 上传一篇 PDF 文档
-2. 问一个直接问题，如“文档的主题是什么？”
-3. 再问一个追问，如“它的特点是什么？”
-4. 再问一个无关问题，如“今天杭州天气怎么样？”
-5. 展示左侧命中的 sources、rerank 分数和 rewritten query
-6. 最后运行 benchmark，展示评测报告和通过率
-
-## Why This Project Is Useful For Job Applications
-
-这个版本不是单纯“调用大模型接口”的 Demo，而是更接近真实 AI 应用开发流程：
-
-- 具备完整的文档处理和检索链路
-- 具备 query rewrite / rerank / refusal 等关键 RAG 能力
-- 能解释检索命中和回答来源
-- 能通过 benchmark 对优化效果做量化验证
-- 适合继续扩展 memory、multi-KB、reranker model、A/B evaluation 等方向
-
-## Roadmap
-
-- [ ] 引入独立 reranker 模型
-- [ ] 支持多知识库管理与文件级管理
-- [ ] 增加流式回答和更细粒度的引用展示
-- [ ] 支持 benchmark 对比不同配置的实验结果
-- [ ] 增加自动化回归评测与报告归档

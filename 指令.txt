@@ -1,0 +1,14 @@
+后端指令：
+cd E:\ai\ai-rag-system
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --reload
+
+前端指令：
+cd E:\ai\ai-rag-system\web\react-ui
+npm run dev
+
+
+Milvus指令：
+docker compose up -d
+检查指令：
+docker compose ps
