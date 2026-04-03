@@ -1,6 +1,7 @@
 ﻿import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Documents from "./pages/Documents";
 import Evaluation from "./pages/Evaluation";
@@ -28,7 +29,8 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/app/chat" replace />} />
+        <Route index element={<Navigate to="/app/overview" replace />} />
+        <Route path="overview" element={<Dashboard />} />
         <Route path="chat" element={<Chat />} />
         <Route path="documents" element={<Documents />} />
         <Route path="evaluation" element={<Evaluation />} />

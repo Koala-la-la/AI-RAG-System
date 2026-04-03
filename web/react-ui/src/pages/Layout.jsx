@@ -9,6 +9,8 @@ export default function Layout() {
   const auth = getAuth();
   const [authUser, setAuthUser] = useState(auth.user);
   const [authToken, setAuthToken] = useState(auth.token);
+  const [authTeam, setAuthTeam] = useState(auth.team);
+  const [authRole, setAuthRole] = useState(auth.role);
   const [kbId, setKbId] = useState(getLastKb());
 
   useEffect(() => {
@@ -32,12 +34,16 @@ export default function Layout() {
     clearAuth();
     setAuthToken("");
     setAuthUser("");
+    setAuthTeam("platform");
+    setAuthRole("member");
     navigate("/login", { replace: true });
   };
 
   const contextValue = {
     authUser,
     authToken,
+    authTeam,
+    authRole,
     kbId,
     setKbId
   };
@@ -45,32 +51,40 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <aside className="side-nav">
-        <div className="brand">AI RAG Lab</div>
-        <div className="brand-subtitle">多页面工作台</div>
+        <div className="brand">Knowledge Copilot</div>
+        <div className="brand-subtitle">企业内部知识库助手</div>
 
         <nav className="nav-list">
+          <NavLink
+            to="/app/overview"
+            className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
+          >
+            工作台
+          </NavLink>
           <NavLink
             to="/app/chat"
             className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
           >
-            对话
+            问题处理
           </NavLink>
           <NavLink
             to="/app/documents"
             className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
           >
-            文档管理
+            文档中心
           </NavLink>
           <NavLink
             to="/app/evaluation"
             className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
           >
-            评测
+            质量评测
           </NavLink>
         </nav>
 
         <div className="nav-footer">
           <div className="nav-user">当前账号：{authUser || "未登录"}</div>
+          <div className="nav-user">团队：{authTeam || "platform"}</div>
+          <div className="nav-user">角色：{authRole || "member"}</div>
           <button className="btn btn-secondary" onClick={handleLogout}>
             退出登录
           </button>
@@ -80,8 +94,8 @@ export default function Layout() {
       <div className="app-main">
         <header className="topbar">
           <div>
-            <div className="title">Enterprise RAG Workspace</div>
-            <div className="subtitle">检索、管理、评测拆分为独立页面</div>
+            <div className="title">Enterprise Knowledge Workspace</div>
+            <div className="subtitle">以企业内部问题处理为中心，把工作台、问题单、文档治理和质量评测拆分成独立页面</div>
           </div>
           <div className="kb-control">
             <label>知识库 ID</label>
@@ -96,3 +110,4 @@ export default function Layout() {
     </div>
   );
 }
+
