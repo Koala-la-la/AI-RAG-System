@@ -96,6 +96,33 @@ export async function getConversationMessages(userId, kbId, conversationId, toke
   return data;
 }
 
+export async function getConversationTimeline(userId, kbId, conversationId, token) {
+  const { data } = await client.get(`/conversations/${conversationId}/timeline`, {
+    params: {
+      user_id: userId,
+      kb_id: kbId
+    },
+    headers: authHeaders(token)
+  });
+  return data;
+}
+
+export async function transitionConversation(userId, kbId, conversationId, targetStatus, note, token) {
+  const { data } = await client.post(
+    `/conversations/${conversationId}/transition`,
+    {
+      user_id: userId,
+      kb_id: kbId,
+      target_status: targetStatus,
+      note: note || ""
+    },
+    {
+      headers: authHeaders(token)
+    }
+  );
+  return data;
+}
+
 export async function updateConversation(userId, kbId, conversationId, updates, token) {
   const { data } = await client.patch(
     `/conversations/${conversationId}`,

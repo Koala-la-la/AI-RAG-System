@@ -6,7 +6,9 @@ import {
   createConversation,
   deleteConversation,
   getConversationMessages,
+  getConversationTimeline,
   listConversations,
+  transitionConversation,
   updateConversation
 } from "../api";
 
@@ -18,7 +20,7 @@ const DEFAULT_ASSISTANT = {
 
 const EMPTY_CASE = {
   title: "",
-  status: "open",
+  status: "new",
   priority: "medium",
   system_name: "",
   environment: "",
@@ -28,10 +30,13 @@ const EMPTY_CASE = {
 };
 
 const STATUS_OPTIONS = [
-  { value: "open", label: "待处理", tone: "tag-muted" },
-  { value: "in_progress", label: "处理中", tone: "tag-cool" },
+  { value: "new", label: "待受理", tone: "tag-muted" },
+  { value: "triaged", label: "已分诊", tone: "tag-cool" },
+  { value: "investigating", label: "排查中", tone: "tag-cool" },
+  { value: "pending_escalation", label: "待升级", tone: "tag-warm" },
+  { value: "escalated", label: "已升级", tone: "tag-danger" },
   { value: "resolved", label: "已解决", tone: "tag-good" },
-  { value: "escalated", label: "已升级", tone: "tag-danger" }
+  { value: "archived", label: "已归档", tone: "tag-muted" }
 ];
 
 const PRIORITY_OPTIONS = [
@@ -40,6 +45,24 @@ const PRIORITY_OPTIONS = [
   { value: "high", label: "高", tone: "tag-warm" },
   { value: "critical", label: "紧急", tone: "tag-danger" }
 ];
+
+const TRANSITION_LABELS = {
+  new: "重新打开",
+  triaged: "完成分诊",
+  investigating: "开始排查",
+  pending_escalation: "提交升级评估",
+  escalated: "确认已升级",
+  resolved: "标记已解决",
+  archived: "归档问题单"
+};
+
+const EVENT_LABELS = {
+  case_created: "创建问题单",
+  case_updated: "更新问题单",
+  status_transition: "状态流转",
+  messages_appended: "处理记录写入",
+  case_deleted: "删除问题单"
+};
 
 const DOC_TYPE_LABELS = {
   api: "API 文档",
@@ -56,6 +79,16 @@ const ACCESS_LABELS = {
   team: "团队",
   org: "全公司"
 };
+
+const CASE_EDIT_FIELDS = [
+  "title",
+  "priority",
+  "system_name",
+  "environment",
+  "impact_scope",
+  "current_error",
+  "resolution_summary"
+];
 
 function formatNumber(value, digits = 4) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -79,7 +112,7 @@ function buildCaseForm(item) {
   if (!item) return { ...EMPTY_CASE };
   return {
     title: item.title || "",
-    status: item.status || "open",
+    status: item.status || "new",
     priority: item.priority || "medium",
     system_name: item.system_name || "",
     environment: item.environment || "",
@@ -109,6 +142,29 @@ function getLastAssistantDetails(items = []) {
   };
 }
 
+function normalizeTimeline(timeline) {
+  return {
+    events: Array.isArray(timeline?.events) ? timeline.events : [],
+    milestones: Array.isArray(timeline?.milestones) ? timeline.milestones : [],
+    allowedTransitions: Array.isArray(timeline?.allowed_transitions) ? timeline.allowed_transitions : [],
+    sla: timeline?.sla || {}
+  };
+}
+
+function formatEventSummary(event) {
+  const changes = event?.details?.changes;
+  if (!changes || typeof changes !== "object") {
+    return "";
+  }
+  const fields = Object.keys(changes);
+  if (fields.length === 0) return "";
+  return `字段变更：${fields.join("、")}`;
+}
+
+function slaTone(breached) {
+  return breached ? "tag-danger" : "tag-good";
+}
+
 export default function ChatPage() {
   const { authUser, authToken, kbId } = useOutletContext();
   const [question, setQuestion] = useState("");
@@ -124,6 +180,10 @@ export default function ChatPage() {
   const [savingCase, setSavingCase] = useState(false);
   const [caseFeedback, setCaseFeedback] = useState("");
   const [routeInfo, setRouteInfo] = useState({ routeLabel: "", routeSummary: "", sourceFilters: [] });
+  const [timeline, setTimeline] = useState(normalizeTimeline(null));
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const [transitionNote, setTransitionNote] = useState("");
 
   const activeConversation = conversations.find((item) => item.id === activeId) || null;
 
@@ -133,17 +193,15 @@ export default function ChatPage() {
 
   const canSaveCase = useMemo(() => {
     if (!activeConversation) return false;
-    return [
-      "title",
-      "status",
-      "priority",
-      "system_name",
-      "environment",
-      "impact_scope",
-      "current_error",
-      "resolution_summary"
-    ].some((field) => (activeConversation[field] || "") !== (caseForm[field] || ""));
+    return CASE_EDIT_FIELDS.some((field) => (activeConversation[field] || "") !== (caseForm[field] || ""));
   }, [activeConversation, caseForm]);
+
+  const availableTransitions = useMemo(() => {
+    if (timeline.allowedTransitions.length > 0) {
+      return timeline.allowedTransitions;
+    }
+    return Array.isArray(activeConversation?.allowed_transitions) ? activeConversation.allowed_transitions : [];
+  }, [timeline.allowedTransitions, activeConversation?.allowed_transitions]);
 
   const mergeConversation = (nextConversation) => {
     if (!nextConversation) return;
@@ -161,6 +219,7 @@ export default function ChatPage() {
       setSources([]);
       setCaseForm({ ...EMPTY_CASE });
       setRouteInfo({ routeLabel: "", routeSummary: "", sourceFilters: [] });
+      setTimeline(normalizeTimeline(null));
       return;
     }
 
@@ -202,11 +261,13 @@ export default function ChatPage() {
       setMessages([DEFAULT_ASSISTANT]);
       setSources([]);
       setRouteInfo({ routeLabel: "", routeSummary: "", sourceFilters: [] });
+      setTimeline(normalizeTimeline(null));
       return;
     }
 
     const loadMessages = async () => {
       setLoadingMessages(true);
+      setTimelineLoading(true);
       try {
         const data = await getConversationMessages(authUser, kbId.trim(), activeId, authToken);
         const items = data.messages || [];
@@ -223,6 +284,7 @@ export default function ChatPage() {
           routeSummary: details.routeSummary,
           sourceFilters: details.sourceFilters
         });
+        setTimeline(normalizeTimeline(data.timeline));
       } catch (err) {
         const message = err.response?.data?.detail || err.message || "加载问题单失败";
         setMessages([
@@ -233,8 +295,10 @@ export default function ChatPage() {
         ]);
         setSources([]);
         setRouteInfo({ routeLabel: "", routeSummary: "", sourceFilters: [] });
+        setTimeline(normalizeTimeline(null));
       } finally {
         setLoadingMessages(false);
+        setTimelineLoading(false);
       }
     };
 
@@ -254,7 +318,9 @@ export default function ChatPage() {
       setMessages([DEFAULT_ASSISTANT]);
       setSources([]);
       setRouteInfo({ routeLabel: "", routeSummary: "", sourceFilters: [] });
+      setTimeline(normalizeTimeline(null));
       setCaseFeedback("");
+      setTransitionNote("");
     } catch (err) {
       const message = err.response?.data?.detail || err.message || "创建问题单失败";
       alert(`创建问题单失败：${message}`);
@@ -264,6 +330,7 @@ export default function ChatPage() {
   const handleSelectConversation = (id) => {
     if (id === activeId) return;
     setActiveId(id);
+    setTransitionNote("");
   };
 
   const handleDeleteConversation = async (id) => {
@@ -286,6 +353,7 @@ export default function ChatPage() {
         }
       }
       setRouteInfo({ routeLabel: "", routeSummary: "", sourceFilters: [] });
+      setTimeline(normalizeTimeline(null));
       setCaseFeedback("");
     } catch (err) {
       const message = err.response?.data?.detail || err.message || "删除问题单失败";
@@ -297,17 +365,53 @@ export default function ChatPage() {
     if (!activeConversation || !canSaveCase) return;
     setSavingCase(true);
     setCaseFeedback("");
+
+    const updates = {};
+    CASE_EDIT_FIELDS.forEach((field) => {
+      updates[field] = caseForm[field];
+    });
+
     try {
-      const updated = await updateConversation(authUser, kbId.trim(), activeConversation.id, caseForm, authToken);
+      const updated = await updateConversation(authUser, kbId.trim(), activeConversation.id, updates, authToken);
       mergeConversation(updated);
       setActiveId(updated.id);
       setCaseForm(buildCaseForm(updated));
       setCaseFeedback("问题单已保存");
+
+      const timelineData = await getConversationTimeline(authUser, kbId.trim(), activeConversation.id, authToken);
+      setTimeline(normalizeTimeline(timelineData));
     } catch (err) {
       const message = err.response?.data?.detail || err.message || "保存问题单失败";
       setCaseFeedback(message);
     } finally {
       setSavingCase(false);
+    }
+  };
+
+  const handleTransition = async (targetStatus) => {
+    if (!activeConversation) return;
+    setTransitioning(true);
+    setCaseFeedback("");
+    try {
+      const result = await transitionConversation(
+        authUser,
+        kbId.trim(),
+        activeConversation.id,
+        targetStatus,
+        transitionNote,
+        authToken
+      );
+      const updated = result.conversation;
+      mergeConversation(updated);
+      setCaseForm(buildCaseForm(updated));
+      setTimeline(normalizeTimeline(result.timeline));
+      setTransitionNote("");
+      setCaseFeedback(`流程已更新为：${findOption(STATUS_OPTIONS, targetStatus).label}`);
+    } catch (err) {
+      const message = err.response?.data?.detail || err.message || "流程动作失败";
+      setCaseFeedback(message);
+    } finally {
+      setTransitioning(false);
     }
   };
 
@@ -365,6 +469,13 @@ export default function ChatPage() {
       } else {
         refreshConversations(false);
       }
+
+      try {
+        const timelineData = await getConversationTimeline(authUser, kbId.trim(), conversationId, authToken);
+        setTimeline(normalizeTimeline(timelineData));
+      } catch (timelineErr) {
+        // keep current UI state when timeline fetch fails
+      }
     } catch (err) {
       const message = err.response?.data?.detail || err.message || "请求失败";
       setMessages((prev) => [
@@ -384,6 +495,10 @@ export default function ChatPage() {
       setLoading(false);
     }
   };
+
+  const activeStatus = findOption(STATUS_OPTIONS, caseForm.status || activeConversation?.status || "new");
+  const activePriority = findOption(PRIORITY_OPTIONS, caseForm.priority || activeConversation?.priority || "medium");
+  const transitionTargets = availableTransitions.map((value) => findOption(STATUS_OPTIONS, value));
 
   return (
     <div className="chat-layout case-layout">
@@ -445,12 +560,8 @@ export default function ChatPage() {
               <div className="card-subtitle">先补全上下文，再让 AI 基于知识库给处理建议</div>
             </div>
             <div className="case-meta-inline">
-              <span className={`tag ${findOption(STATUS_OPTIONS, caseForm.status).tone}`}>
-                {findOption(STATUS_OPTIONS, caseForm.status).label}
-              </span>
-              <span className={`tag ${findOption(PRIORITY_OPTIONS, caseForm.priority).tone}`}>
-                {findOption(PRIORITY_OPTIONS, caseForm.priority).label}
-              </span>
+              <span className={`tag ${activeStatus.tone}`}>{activeStatus.label}</span>
+              <span className={`tag ${activePriority.tone}`}>{activePriority.label}</span>
             </div>
           </div>
 
@@ -464,17 +575,10 @@ export default function ChatPage() {
               />
             </div>
             <div>
-              <label>状态</label>
-              <select
-                value={caseForm.status}
-                onChange={(e) => setCaseForm((prev) => ({ ...prev, status: e.target.value }))}
-              >
-                {STATUS_OPTIONS.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+              <label>当前流程状态</label>
+              <div className="readonly-field">
+                <span className={`tag ${activeStatus.tone}`}>{activeStatus.label}</span>
+              </div>
             </div>
             <div>
               <label>优先级</label>
@@ -540,6 +644,54 @@ export default function ChatPage() {
             <div className="case-feedback">{caseFeedback || (activeConversation ? `问题单 ID：${activeConversation.id}` : "")}</div>
           </div>
 
+          <div className="workflow-panel">
+            <div className="triage-title">流程动作（合法流转）</div>
+            <div className="card-subtitle">系统只允许按流程推进，避免状态跳变导致协作混乱。</div>
+            <input
+              value={transitionNote}
+              onChange={(e) => setTransitionNote(e.target.value)}
+              placeholder="可选：写入操作备注，例如“已确认回调链路异常，准备升级支付研发”"
+            />
+            <div className="workflow-actions-row">
+              {transitionTargets.length === 0 ? (
+                <div className="empty">当前状态暂无下一步动作。</div>
+              ) : (
+                transitionTargets.map((target) => (
+                  <button
+                    key={target.value}
+                    className="mini-btn mini-btn-secondary workflow-btn"
+                    onClick={() => handleTransition(target.value)}
+                    disabled={!activeConversation || transitioning}
+                  >
+                    {TRANSITION_LABELS[target.value] || target.label}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="sla-panel">
+            <div className="triage-title">SLA 监控</div>
+            <div className="summary-grid">
+              <div className="summary-stat">
+                <span className="summary-stat-label">首次响应截止</span>
+                <div>{formatDate(timeline.sla.response_due_at)}</div>
+                <span className={`tag ${slaTone(Boolean(timeline.sla.response_breached))}`}>
+                  {timeline.sla.response_breached ? "已超时" : "正常"}
+                </span>
+              </div>
+              <div className="summary-stat">
+                <span className="summary-stat-label">问题解决截止</span>
+                <div>{formatDate(timeline.sla.resolution_due_at)}</div>
+                <span className={`tag ${slaTone(Boolean(timeline.sla.resolution_breached))}`}>
+                  {timeline.sla.resolution_breached ? "已超时" : "正常"}
+                </span>
+              </div>
+            </div>
+            <div className="source-meta">首次响应时间：{formatDate(timeline.sla.first_response_at)}</div>
+            <div className="source-meta">最近流转时间：{formatDate(timeline.sla.last_transition_at)}</div>
+          </div>
+
           <div className="triage-panel">
             <div className="triage-title">当前问题分诊</div>
             {routeInfo.routeLabel ? (
@@ -561,6 +713,36 @@ export default function ChatPage() {
               <div className="empty">发送问题后，这里会显示当前分诊类型和限制检索的文档范围。</div>
             )}
           </div>
+        </section>
+
+        <section className="card workflow-timeline-card">
+          <div className="card-head">
+            <div>
+              <div className="card-title">流程时间线 / 审计日志</div>
+              <div className="card-subtitle">记录谁在什么时候做了什么，保证流程可追溯</div>
+            </div>
+            <span className="tag tag-muted">{timeline.events.length} 条记录</span>
+          </div>
+
+          {timelineLoading ? (
+            <div className="empty">正在加载时间线...</div>
+          ) : timeline.events.length === 0 ? (
+            <div className="empty">当前问题单还没有操作日志。</div>
+          ) : (
+            <div className="timeline-list">
+              {timeline.events.map((event) => (
+                <div className="timeline-item" key={event.id}>
+                  <div className="timeline-head">
+                    <strong>{EVENT_LABELS[event.event_type] || event.event_type}</strong>
+                    <span className="tag tag-muted">{formatDate(event.timestamp)}</span>
+                  </div>
+                  <div className="source-meta">操作人：{event.actor || "system"}</div>
+                  {event.note && <div className="source-meta">备注：{event.note}</div>}
+                  {formatEventSummary(event) && <div className="source-meta">{formatEventSummary(event)}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="card case-workflow-card">

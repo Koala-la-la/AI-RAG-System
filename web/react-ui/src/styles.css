@@ -1002,3 +1002,66 @@ select:focus {
   line-height: 1.6;
   font-size: 13px;
 }
+
+.readonly-field {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  background: var(--panel-soft);
+}
+
+.workflow-panel,
+.sla-panel,
+.workflow-timeline-card {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
+.workflow-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.workflow-btn {
+  width: auto;
+  min-width: 120px;
+  margin-top: 0;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 900px) {
+  .workflow-actions-row {
+    flex-direction: column;
+  }
+
+  .workflow-btn {
+    width: 100%;
+  }
+}
